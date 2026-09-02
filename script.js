@@ -3033,14 +3033,38 @@ function restorePendingRegistration() {
 
 
 /* =========================================================
-   INITIALIZE VOZACHAT
-   ========================================================= */
-
 loadSavedTheme();
 
 loadSavedUser();
 
 restorePendingRegistration();
+
+
+/*
+   Protect the app.
+   If nobody is logged in,
+   show the account / login screen first.
+*/
+
+if (!isLoggedIn()) {
+
+    hideAllSections();
+
+    accountSection.style.display =
+        "block";
+
+    accountSection.classList.add(
+        "active-section"
+    );
+
+    showLogin();
+
+} else {
+
+    showSection("chats");
+    activateTab("chats");
+
+}
 
 
 /*
