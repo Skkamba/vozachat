@@ -3032,7 +3032,11 @@ function restorePendingRegistration() {
 }
 
 
+
 /* =========================================================
+   INITIALIZE VOZACHAT
+   ========================================================= */
+
 loadSavedTheme();
 
 loadSavedUser();
