@@ -3061,10 +3061,30 @@ if (!isLoggedIn()) {
         "active-section"
     );
 
+    const topBar = document.querySelector(".top-bar");
+    const mainTabs = document.querySelector(".main-tabs");
+
+    if (topBar) {
+        topBar.style.display = "none";
+    }
+
+    if (mainTabs) {
+        mainTabs.style.display = "none";
+    }
     showLogin();
 
 } else {
 
+    const topBar = document.querySelector(".top-bar");
+    const mainTabs = document.querySelector(".main-tabs");
+
+    if (topBar) {
+        topBar.style.display = "flex";
+    }
+
+    if (mainTabs) {
+        mainTabs.style.display = "flex";
+    }
     showSection("chats");
     activateTab("chats");
 
