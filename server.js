@@ -5,6 +5,9 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const db = require("./database");
 const { Resend } = require("resend");
+const cloudinary = require("cloudinary").v2;
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
 
 function loadEnvFile() {
     const envPath = path.join(__dirname, ".env");
@@ -45,6 +48,12 @@ function loadEnvFile() {
 }
 
 loadEnvFile();
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 let resend = null;
 
@@ -2447,6 +2456,289 @@ app.get(
 
 
 // =========================================
+// =========================================
+// UPLOAD FILE TO CLOUDINARY
+// =========================================
+
+app.post(
+    "/api/upload",
+    upload.single("file"),
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: "No file uploaded."
+                });
+            }
+
+            const fileType =
+                req.body.type || "image";
+
+            const folder =
+                fileType === "video"
+                    ? "vozachat_videos"
+                    : fileType === "audio"
+                        ? "vozachat_audio"
+                        : "vozachat_images";
+
+            const result =
+                await new Promise(
+                    (resolve, reject) => {
+                        const stream =
+                            cloudinary.uploader.upload_stream(
+                                {
+                                    folder: folder,
+                                    resource_type:
+                                        fileType === "video"
+                                            ? "video"
+                                            : fileType === "audio"
+                                                ? "video"
+                                                : "image"
+                                },
+                                (error, result) => {
+                                    if (error) {
+                                        reject(error);
+                                    } else {
+                                        resolve(result);
+                                    }
+                                }
+                            );
+
+                        stream.end(req.file.buffer);
+                    }
+                );
+
+            res.json({
+                success: true,
+                url: result.secure_url,
+                public_id: result.public_id
+            });
+
+        } catch (error) {
+            console.error("Upload error:", error);
+
+            res.status(500).json({
+                success: false,
+                message: "Unable to upload file."
+            });
+        }
+    }
+);
+
+
+
+// =========================================
+// POST STATUS
+// =========================================
+
+app.post(
+    "/api/status",
+    (req, res) => {
+        try {
+            const {
+                userId,
+                mediaUrl,
+                statusType
+            } = req.body;
+
+            if (!userId || !mediaUrl) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Status content is required."
+                });
+            }
+
+            const user =
+                getVerifiedUser(Number(userId));
+
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your account is not verified."
+                });
+            }
+
+            const expiresAt =
+                new Date(
+                    Date.now() + 2 * 60 * 1000
+                ).toISOString();
+
+            db.prepare(`
+                INSERT INTO statuses (
+                    user_id,
+                    status_type,
+                    media_url,
+                    expires_at
+                )
+                VALUES (?, ?, ?, ?)
+            `).run(
+                Number(userId),
+                statusType || "image",
+                mediaUrl,
+                expiresAt
+            );
+
+            res.json({
+                success: true,
+                message: "Status posted successfully."
+            });
+
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({
+                success: false,
+                message: "Unable to post status."
+            });
+        }
+    }
+);
+
+
+// =========================================
+// GET STATUSES
+// =========================================
+
+app.get(
+    "/api/status/:userId",
+    (req, res) => {
+        try {
+            const userId =
+                Number(req.params.userId);
+
+            const statuses =
+                db.prepare(`
+                    SELECT
+                        s.id,
+                        s.user_id,
+                        s.status_type,
+                        s.media_url,
+                        s.created_at,
+                        u.username,
+                        u.full_name
+                    FROM statuses s
+                    JOIN users u
+                        ON u.id = s.user_id
+                    WHERE s.expires_at > datetime('now')
+                    ORDER BY s.id DESC
+                `).all();
+
+            res.json({
+                success: true,
+                statuses: statuses
+            });
+
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({
+                success: false,
+                message: "Unable to load statuses."
+            });
+        }
+    }
+);
+
+
+// =========================================
+// POST VIBE
+// =========================================
+
+app.post(
+    "/api/vibe",
+    (req, res) => {
+        try {
+            const {
+                userId,
+                videoUrl,
+                caption
+            } = req.body;
+
+            if (!userId || !videoUrl) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Video content is required."
+                });
+            }
+
+            const user =
+                getVerifiedUser(Number(userId));
+
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your account is not verified."
+                });
+            }
+
+            db.prepare(`
+                INSERT INTO vibes (
+                    user_id,
+                    video_url,
+                    caption
+                )
+                VALUES (?, ?, ?)
+            `).run(
+                Number(userId),
+                videoUrl,
+                caption || ""
+            );
+
+            res.json({
+                success: true,
+                message: "Vibe posted successfully."
+            });
+
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({
+                success: false,
+                message: "Unable to post Vibe."
+            });
+        }
+    }
+);
+
+
+// =========================================
+// GET VIBES
+// =========================================
+
+app.get(
+    "/api/vibe",
+    (req, res) => {
+        try {
+            const vibes =
+                db.prepare(`
+                    SELECT
+                        v.id,
+                        v.user_id,
+                        v.video_url,
+                        v.caption,
+                        v.created_at,
+                        u.username,
+                        u.full_name
+                    FROM vibes v
+                    JOIN users u
+                        ON u.id = v.user_id
+                    ORDER BY v.id DESC
+                `).all();
+
+            res.json({
+                success: true,
+                vibes: vibes
+            });
+
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({
+                success: false,
+                message: "Unable to load Vibes."
+            });
+        }
+    }
+);
+
+
 // API STATUS
 // =========================================
 

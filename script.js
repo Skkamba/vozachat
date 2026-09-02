@@ -836,6 +836,339 @@ if (messageInput) {
         }
     );
 
+
+/* =========================================================
+   PHOTO UPLOAD
+   ========================================================= */
+
+const photoButton =
+    document.getElementById("photoButton");
+
+if (photoButton) {
+
+    photoButton.addEventListener(
+        "click",
+        function() {
+
+            const fileInput =
+                document.createElement("input");
+
+            fileInput.type = "file";
+            fileInput.accept = "image/*";
+
+            fileInput.onchange =
+                async function(event) {
+
+                    const file =
+                        event.target.files[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+                    await uploadFile(
+                        file,
+                        "image"
+                    );
+
+                };
+
+            fileInput.click();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   VOICE MESSAGE
+   ========================================================= */
+
+const voiceButton =
+    document.getElementById("voiceButton");
+
+if (voiceButton) {
+
+    voiceButton.addEventListener(
+        "click",
+        async function() {
+
+            try {
+
+                const stream =
+                    await navigator.mediaDevices
+                        .getUserMedia({
+                            audio: true
+                        });
+
+                const recorder =
+                    new MediaRecorder(stream);
+
+                const chunks = [];
+
+                recorder.ondataavailable =
+                    function(event) {
+                        chunks.push(
+                            event.data
+                        );
+                    };
+
+                recorder.onstop =
+                    async function() {
+
+                        const blob =
+                            new Blob(
+                                chunks,
+                                {
+                                    type: "audio/webm"
+                                }
+                            );
+
+                        const file =
+                            new File(
+                                [blob],
+                                "voice-message.webm",
+                                {
+                                    type: "audio/webm"
+                                }
+                            );
+
+                        await uploadFile(
+                            file,
+                            "audio"
+                        );
+
+                        stream
+                            .getTracks()
+                            .forEach(
+                                track =>
+                                    track.stop()
+                            );
+
+                    };
+
+                recorder.start();
+
+                voiceButton.textContent =
+                    "⏹";
+
+                setTimeout(
+                    function() {
+                        recorder.stop();
+
+                        voiceButton.textContent =
+                            "🎤";
+                    },
+                    15000
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Voice recording error:",
+                    error
+                );
+
+                alert(
+                    "Unable to record audio."
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   UPLOAD FILE HELPER
+   ========================================================= */
+
+async function uploadFile(
+    file,
+    type
+) {
+
+    if (!isLoggedIn()) {
+
+        alert(
+            "Please log in first."
+        );
+
+        return;
+
+    }
+
+
+    const formData =
+        new FormData();
+
+    formData.append(
+        "file",
+        file
+    );
+
+    formData.append(
+        "type",
+        type
+    );
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/upload",
+                {
+                    method: "POST",
+
+                    body: formData
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Upload failed."
+            );
+
+            return;
+
+        }
+
+
+        if (
+            type === "audio"
+        ) {
+
+            await sendMediaMessage(
+                result.url,
+                "audio"
+            );
+
+        } else {
+
+            await sendMediaMessage(
+                result.url,
+                "image"
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Upload error:",
+            error
+        );
+
+        alert(
+            "Unable to upload file."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   SEND MEDIA MESSAGE
+   ========================================================= */
+
+async function sendMediaMessage(
+    url,
+    type
+) {
+
+    if (
+        !currentChatUsername
+    ) {
+
+        alert(
+            "No chat selected."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/messages",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        senderId:
+                            currentUser.id,
+
+                        receiverUsername:
+                            currentChatUsername,
+
+                        message:
+                            type === "audio"
+                                ? "[Voice message] " + url
+                                : "[Image] " + url
+
+                    })
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Unable to send media."
+            );
+
+            return;
+
+        }
+
+
+        await loadMessages(
+            currentChatUsername
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Send media error:",
+            error
+        );
+
+        alert(
+            "Unable to send media."
+        );
+
+    }
+
+}
+
 }
 
 
@@ -2621,6 +2954,34 @@ if (loginButton) {
 
                 if (!response.ok) {
 
+                    if (
+                        result.userId &&
+                        result.verificationMethod
+                    ) {
+
+                        pendingRegistrationUserId =
+                            String(result.userId);
+
+                        pendingRegistrationUsername =
+                            "";
+
+                        localStorage.setItem(
+                            "vozachatPendingUserId",
+                            pendingRegistrationUserId
+                        );
+
+                        showOtp();
+
+                        alert(
+                            "Please verify your account. Enter the OTP sent to your " +
+                            result.verificationMethod +
+                            "."
+                        );
+
+                        return;
+
+                    }
+
                     alert(
                         result.message ||
                         "Login failed."
@@ -3031,6 +3392,599 @@ function restorePendingRegistration() {
 
 }
 
+
+
+/* =========================================================
+   STATUS UPLOAD
+   ========================================================= */
+
+const statusAddButton =
+    document.getElementById("statusAddButton");
+
+if (statusAddButton) {
+
+    statusAddButton.addEventListener(
+        "click",
+        function() {
+
+            if (!isLoggedIn()) {
+
+                alert(
+                    "Please log in first."
+                );
+
+                showLogin();
+
+                return;
+
+            }
+
+
+            const fileInput =
+                document.createElement("input");
+
+            fileInput.type = "file";
+            fileInput.accept =
+                "image/*,video/*";
+
+            fileInput.onchange =
+                async function(event) {
+
+                    const file =
+                        event.target.files[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    const formData =
+                        new FormData();
+
+                    formData.append(
+                        "file",
+                        file
+                    );
+
+                    formData.append(
+                        "type",
+                        file.type.startsWith("video")
+                            ? "video"
+                            : "image"
+                    );
+
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                "/api/upload",
+                                {
+                                    method: "POST",
+
+                                    body: formData
+                                }
+                            );
+
+
+                        const result =
+                            await response.json();
+
+
+                        if (!response.ok) {
+
+                            alert(
+                                result.message ||
+                                "Upload failed."
+                            );
+
+                            return;
+
+                        }
+
+
+                        const statusResponse =
+                            await fetch(
+                                "/api/status",
+                                {
+                                    method: "POST",
+
+                                    headers: {
+                                        "Content-Type":
+                                            "application/json"
+                                    },
+
+                                    body: JSON.stringify({
+
+                                        userId:
+                                            currentUser.id,
+
+                                        mediaUrl:
+                                            result.url,
+
+                                        statusType:
+                                            file.type.startsWith("video")
+                                                ? "video"
+                                                : "image"
+
+                                    })
+                                }
+                            );
+
+
+                        const statusResult =
+                            await statusResponse.json();
+
+
+                        if (!statusResponse.ok) {
+
+                            alert(
+                                statusResult.message ||
+                                "Unable to post status."
+                            );
+
+                            return;
+
+                        }
+
+
+                        alert(
+                            "Status posted successfully!"
+                        );
+
+
+                        await loadStatuses();
+
+
+                    } catch (error) {
+
+                        console.error(
+                            "Status upload error:",
+                            error
+                        );
+
+                        alert(
+                            "Unable to upload status."
+                        );
+
+                    }
+
+                };
+
+            fileInput.click();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   VIBE UPLOAD
+   ========================================================= */
+
+const vibeAddButton =
+    document.getElementById("vibeAddButton");
+
+if (vibeAddButton) {
+
+    vibeAddButton.addEventListener(
+        "click",
+        function() {
+
+            if (!isLoggedIn()) {
+
+                alert(
+                    "Please log in first."
+                );
+
+                showLogin();
+
+                return;
+
+            }
+
+
+            const fileInput =
+                document.createElement("input");
+
+            fileInput.type = "file";
+            fileInput.accept = "video/*";
+
+            fileInput.onchange =
+                async function(event) {
+
+                    const file =
+                        event.target.files[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    const caption =
+                        prompt(
+                            "Enter a caption for your Vibe video:"
+                        ) || "";
+
+
+                    const formData =
+                        new FormData();
+
+                    formData.append(
+                        "file",
+                        file
+                    );
+
+                    formData.append(
+                        "type",
+                        "video"
+                    );
+
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                "/api/upload",
+                                {
+                                    method: "POST",
+
+                                    body: formData
+                                }
+                            );
+
+
+                        const result =
+                            await response.json();
+
+
+                        if (!response.ok) {
+
+                            alert(
+                                result.message ||
+                                "Upload failed."
+                            );
+
+                            return;
+
+                        }
+
+
+                        const vibeResponse =
+                            await fetch(
+                                "/api/vibe",
+                                {
+                                    method: "POST",
+
+                                    headers: {
+                                        "Content-Type":
+                                            "application/json"
+                                    },
+
+                                    body: JSON.stringify({
+
+                                        userId:
+                                            currentUser.id,
+
+                                        videoUrl:
+                                            result.url,
+
+                                        caption:
+                                            caption
+
+                                    })
+                                }
+                            );
+
+
+                        const vibeResult =
+                            await vibeResponse.json();
+
+
+                        if (!vibeResponse.ok) {
+
+                            alert(
+                                vibeResult.message ||
+                                "Unable to post Vibe."
+                            );
+
+                            return;
+
+                        }
+
+
+                        alert(
+                            "Vibe posted successfully!"
+                        );
+
+
+                        await loadVibes();
+
+
+                    } catch (error) {
+
+                        console.error(
+                            "Vibe upload error:",
+                            error
+                        );
+
+                        alert(
+                            "Unable to upload Vibe."
+                        );
+
+                    }
+
+                };
+
+            fileInput.click();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   LOAD STATUSES
+   ========================================================= */
+
+async function loadStatuses() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/status/" +
+                currentUser.id
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        const statusSection =
+            document.getElementById(
+                "status"
+            );
+
+
+        if (!statusSection) {
+            return;
+        }
+
+
+        const statuses =
+            result.statuses || [];
+
+
+        if (statuses.length === 0) {
+            return;
+        }
+
+
+        statusSection.innerHTML = `
+
+            <div class="section-header">
+
+                <h2>Status</h2>
+
+                <button class="add-button" id="statusAddButton">
+                    +
+                </button>
+
+            </div>
+
+            <div class="status-list">
+
+                ${statuses.map(function(status) {
+
+                    return `
+                        <div class="status-item">
+
+                            <div class="status-avatar">
+                                ${escapeHTML(
+                                    (status.full_name || status.username || "U")
+                                        .charAt(0)
+                                        .toUpperCase()
+                                )}
+                            </div>
+
+                            <div class="status-info">
+
+                                <strong>
+                                    ${escapeHTML(status.username)}
+                                </strong>
+
+                                <p>
+                                    ${escapeHTML(status.status_type)}
+                                </p>
+
+                            </div>
+
+                            ${status.media_url ? `
+                                <img
+                                    src="${status.media_url}"
+                                    alt="Status"
+                                    style="
+                                        width: 50px;
+                                        height: 50px;
+                                        border-radius: 8px;
+                                        object-fit: cover;
+                                    "
+                                >
+                            ` : ""}
+
+                        </div>
+                    `;
+
+                }).join("")}
+
+            </div>
+
+        `;
+
+
+        const newStatusButton =
+            document.getElementById(
+                "statusAddButton"
+            );
+
+
+        if (newStatusButton) {
+
+            newStatusButton.addEventListener(
+                "click",
+                function() {
+                    alert(
+                        "Status upload coming soon!"
+                    );
+                }
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Load statuses error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOAD VIBES
+   ========================================================= */
+
+async function loadVibes() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/vibe"
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        const vibeSection =
+            document.getElementById(
+                "vibe"
+            );
+
+
+        if (!vibeSection) {
+            return;
+        }
+
+
+        const vibes =
+            result.vibes || [];
+
+
+        if (vibes.length === 0) {
+            return;
+        }
+
+
+        vibeSection.innerHTML = `
+
+            <div class="section-header">
+
+                <h2>Vibe</h2>
+
+                <button class="add-button" id="vibeAddButton">
+                    +
+                </button>
+
+            </div>
+
+            <div class="vibe-list">
+
+                ${vibes.map(function(vibe) {
+
+                    return `
+                        <div class="vibe-item">
+
+                            <video
+                                src="${vibe.video_url}"
+                                controls
+                                style="
+                                    width: 100%;
+                                    border-radius: 12px;
+                                    margin-bottom: 10px;
+                                "
+                            ></video>
+
+                            <strong>
+                                @${escapeHTML(vibe.username)}
+                            </strong>
+
+                            ${vibe.caption ? `
+                                <p>
+                                    ${escapeHTML(vibe.caption)}
+                                </p>
+                            ` : ""}
+
+                        </div>
+                    `;
+
+                }).join("")}
+
+            </div>
+
+        `;
+
+
+        const newVibeButton =
+            document.getElementById(
+                "vibeAddButton"
+            );
+
+
+        if (newVibeButton) {
+
+            newVibeButton.addEventListener(
+                "click",
+                function() {
+                    alert(
+                        "Vibe upload coming soon!"
+                    );
+                }
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Load vibes error:",
+            error
+        );
+
+    }
+
+}
 
 
 /* =========================================================
