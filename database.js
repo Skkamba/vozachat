@@ -1,384 +1,174 @@
-const Database = require("better-sqlite3");
+const fs = require("fs");
+const path = require("path");
 
-const db = new Database("levus.db");
-
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
-
-// =========================================
-// USERS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    full_name TEXT NOT NULL,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT UNIQUE,
-    country TEXT NOT NULL,
-    phone TEXT UNIQUE,
-    password_hash TEXT NOT NULL,
-    verification_method TEXT NOT NULL DEFAULT 'email',
-    email_verified INTEGER NOT NULL DEFAULT 0,
-    phone_verified INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-`);
-
-// =========================================
-// OTP VERIFICATIONS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS otp_verifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    identifier TEXT NOT NULL,
-    method TEXT NOT NULL,
-    otp_hash TEXT NOT NULL,
-    purpose TEXT NOT NULL,
-    expires_at DATETIME NOT NULL,
-    attempts INTEGER NOT NULL DEFAULT 0,
-    verified INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// PASSWORD RESETS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS password_resets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    identifier TEXT NOT NULL,
-    method TEXT NOT NULL,
-    otp_hash TEXT NOT NULL,
-    expires_at DATETIME NOT NULL,
-    attempts INTEGER NOT NULL DEFAULT 0,
-    used INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// PRIVACY SETTINGS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS privacy_settings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL UNIQUE,
-    profile_visibility TEXT NOT NULL DEFAULT 'everyone',
-    last_seen_visibility TEXT NOT NULL DEFAULT 'everyone',
-    status_visibility TEXT NOT NULL DEFAULT 'contacts',
-    read_receipts INTEGER NOT NULL DEFAULT 1,
-    online_status INTEGER NOT NULL DEFAULT 1,
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// PROFILE SETTINGS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS profile_settings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL UNIQUE,
-    bio TEXT DEFAULT '',
-    profile_photo TEXT DEFAULT '',
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// CONVERSATIONS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS conversations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-`);
-
-// =========================================
-// CONVERSATION MEMBERS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS conversation_members (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-    conversation_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-
-    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE (
-        conversation_id,
-        user_id
-    ),
-
-    FOREIGN KEY (conversation_id)
-        REFERENCES conversations(id)
-        ON DELETE CASCADE,
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// MESSAGES
-// =========================================
-
-// Check whether old messages table exists
-const messagesTable = db.prepare(`
-    SELECT name
-    FROM sqlite_master
-    WHERE type = 'table'
-      AND name = 'messages'
-`).get();
-
-
-// =========================================
-// CREATE NEW MESSAGES TABLE
-// =========================================
-
-if (!messagesTable) {
-
-    db.exec(`
-        CREATE TABLE messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            conversation_id INTEGER NOT NULL,
-
-            sender_id INTEGER NOT NULL,
-
-            message_text TEXT NOT NULL,
-
-            message_type TEXT NOT NULL DEFAULT 'text',
-
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-            FOREIGN KEY (conversation_id)
-                REFERENCES conversations(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY (sender_id)
-                REFERENCES users(id)
-                ON DELETE CASCADE
-        );
-    `);
-
-} else {
-
-    // =========================================
-    // CHECK OLD MESSAGES TABLE COLUMNS
-    // =========================================
-
-    const columns = db.prepare(`
-        PRAGMA table_info(messages)
-    `).all();
-
-    const columnNames = columns.map(
-        column => column.name
-    );
-
-
-    // =========================================
-    // ADD conversation_id IF MISSING
-    // =========================================
-
-    if (!columnNames.includes("conversation_id")) {
-
-        db.exec(`
-            ALTER TABLE messages
-            ADD COLUMN conversation_id INTEGER
-        `);
-
-        console.log(
-            "Database upgrade: added conversation_id to messages."
-        );
-    }
-
-
-    // =========================================
-    // ADD message_type IF MISSING
-    // =========================================
-
-    if (!columnNames.includes("message_type")) {
-
-        db.exec(`
-            ALTER TABLE messages
-            ADD COLUMN message_type TEXT DEFAULT 'text'
-        `);
-
-        console.log(
-            "Database upgrade: added message_type to messages."
-        );
+// Load .env file
+function loadEnvFile() {
+    const envPath = path.join(__dirname, ".env");
+    if (!fs.existsSync(envPath)) return;
+    const text = fs.readFileSync(envPath, "utf8");
+    for (const line of text.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eq = trimmed.indexOf("=");
+        if (eq === -1) continue;
+        const key = trimmed.slice(0, eq).trim();
+        let value = trimmed.slice(eq + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        if (key && process.env[key] === undefined) {
+            process.env[key] = value;
+        }
     }
 }
 
+loadEnvFile();
 
-// =========================================
-// FIX OLD MESSAGES
-// =========================================
+const { Pool } = require("pg");
 
-// Older versions may have messages without
-// conversation_id.
-//
-// We do not delete them.
-//
-// We leave conversation_id NULL for old messages.
-// New messages will receive a proper conversation ID.
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
+async function initDatabase() {
+    const client = await pool.connect();
+    
+    try {
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                full_name TEXT NOT NULL,
+                username TEXT NOT NULL UNIQUE,
+                email TEXT UNIQUE,
+                country TEXT NOT NULL,
+                phone TEXT UNIQUE,
+                password_hash TEXT NOT NULL,
+                verification_method TEXT NOT NULL DEFAULT 'email',
+                email_verified INTEGER NOT NULL DEFAULT 0,
+                phone_verified INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-// =========================================
-// MESSAGE INDEXES
-// =========================================
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS otp_verifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                identifier TEXT NOT NULL,
+                method TEXT NOT NULL DEFAULT 'email',
+                otp_hash TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                verified INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-db.exec(`
-CREATE INDEX IF NOT EXISTS
-idx_messages_conversation
-ON messages(conversation_id);
-`);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS password_resets (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                identifier TEXT NOT NULL,
+                method TEXT NOT NULL DEFAULT 'email',
+                otp_hash TEXT NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                used INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-db.exec(`
-CREATE INDEX IF NOT EXISTS
-idx_messages_sender
-ON messages(sender_id);
-`);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS privacy_settings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                profile_visibility TEXT NOT NULL DEFAULT 'everyone',
+                last_seen_visibility TEXT NOT NULL DEFAULT 'everyone',
+                status_visibility TEXT NOT NULL DEFAULT 'contacts',
+                read_receipts INTEGER NOT NULL DEFAULT 1,
+                online_status INTEGER NOT NULL DEFAULT 1
+            )
+        `);
 
-db.exec(`
-CREATE INDEX IF NOT EXISTS
-idx_messages_created_at
-ON messages(created_at);
-`);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS profile_settings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                bio TEXT DEFAULT '',
+                profile_photo TEXT DEFAULT ''
+            )
+        `);
 
-// =========================================
-// STATUS
-// =========================================
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS conversations (
+                id SERIAL PRIMARY KEY,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS statuses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS conversation_members (
+                id SERIAL PRIMARY KEY,
+                conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (conversation_id, user_id)
+            )
+        `);
 
-    user_id INTEGER NOT NULL,
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+                sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                message_text TEXT NOT NULL,
+                message_type TEXT NOT NULL DEFAULT 'text',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    status_type TEXT NOT NULL,
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS statuses (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                status_type TEXT NOT NULL,
+                content TEXT,
+                media_url TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL
+            )
+        `);
 
-    content TEXT,
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS vibes (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                video_url TEXT NOT NULL,
+                caption TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    media_url TEXT,
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS friendships (
+                id SERIAL PRIMARY KEY,
+                requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (requester_id, receiver_id)
+            )
+        `);
 
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        console.log("VozaChat PostgreSQL database is ready.");
+        
+    } finally {
+        client.release();
+    }
+}
 
-    expires_at DATETIME NOT NULL,
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// VIBE VIDEOS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS vibes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-    user_id INTEGER NOT NULL,
-
-    video_url TEXT NOT NULL,
-
-    caption TEXT,
-
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// FRIENDSHIPS
-// =========================================
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS friendships (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-    requester_id INTEGER NOT NULL,
-
-    receiver_id INTEGER NOT NULL,
-
-    status TEXT NOT NULL DEFAULT 'pending',
-
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE (
-        requester_id,
-        receiver_id
-    ),
-
-    FOREIGN KEY (requester_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE,
-
-    FOREIGN KEY (receiver_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-`);
-
-// =========================================
-// DEFAULT PRIVACY SETTINGS
-// =========================================
-
-db.exec(`
-INSERT OR IGNORE INTO privacy_settings (user_id)
-SELECT id
-FROM users;
-`);
-
-// =========================================
-// DEFAULT PROFILE SETTINGS
-// =========================================
-
-db.exec(`
-INSERT OR IGNORE INTO profile_settings (user_id)
-SELECT id
-FROM users;
-`);
-
-// =========================================
-// DATABASE READY
-// =========================================
-
-console.log("VozaChat database is ready.");
-console.log("Existing levus.db preserved.");
-console.log("Database migration completed.");
-
-module.exports = db;
+module.exports = { pool, initDatabase };
