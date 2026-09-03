@@ -992,6 +992,18 @@ app.put("/api/privacy/:userId", async (req, res) => {
 });
 
 // =========================================
+app.get("/health", (req, res) => {
+    res.status(200).json({ success: true });
+});
+
+// =========================================
+// ROOT
+// =========================================
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
+
 // API STATUS
 // =========================================
 
