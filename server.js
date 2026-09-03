@@ -1021,7 +1021,7 @@ app.get("/api/status", (req, res) => {
 async function start() {
     await initDatabase();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
         console.log("");
         console.log("=================================");
         console.log("VOZACHAT SERVER");
