@@ -1194,3 +1194,13 @@ button:disabled {
         margin-bottom: 0;
     }
 }
+.top-bar,
+.main-tabs {
+    display: none;
+}
+
+body.logged-in .top-bar,
+body.logged-in .main-tabs {
+    display: flex;
+}
+

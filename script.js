@@ -153,6 +153,7 @@ function saveCurrentUser() {
         return;
     }
 
+    document.body.classList.add("logged-in");
     localStorage.setItem(
         "vozachatUser",
         JSON.stringify(currentUser)
@@ -2352,6 +2353,7 @@ function logoutUser() {
 
 
     localStorage.removeItem(
+    document.body.classList.remove("logged-in");
         "vozachatUser"
     );
 
@@ -4003,6 +4005,7 @@ restorePendingRegistration();
    If nobody is logged in,
    show the account / login screen first.
 */
+    document.body.classList.remove("logged-in");
 
 if (!isLoggedIn()) {
 
@@ -4029,6 +4032,7 @@ if (!isLoggedIn()) {
 
 } else {
 
+    document.body.classList.add("logged-in");
     const topBar = document.querySelector(".top-bar");
     const mainTabs = document.querySelector(".main-tabs");
 
