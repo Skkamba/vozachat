@@ -4011,6 +4011,8 @@ if (!isLoggedIn()) {
     console.log("Showing login screen...");
 
     hideAllSections();
+    document.getElementById("account").style.display = "block";
+    document.getElementById("loginForm").style.display = "block";
 
     accountSection.style.display =
         "block";
