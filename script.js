@@ -4008,6 +4008,7 @@ restorePendingRegistration();
     document.body.classList.remove("logged-in");
 
 if (!isLoggedIn()) {
+    console.log("Showing login screen...");
 
     hideAllSections();
 
