@@ -1229,7 +1229,6 @@ async function updateChatList() {
 
             if (chatList) {
                 // Do not clear innerHTML, because emptyChats is inside chatList.
-                chatList.innerHTML = "";
             }
 
             return;
