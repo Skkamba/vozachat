@@ -2352,10 +2352,8 @@ function logoutUser() {
     currentChatUsername = null;
 
 
-    localStorage.removeItem(
+    localStorage.removeItem("vozachatUser");
     document.body.classList.remove("logged-in");
-        "vozachatUser"
-    );
 
 
     location.reload();
