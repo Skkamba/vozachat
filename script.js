@@ -222,6 +222,7 @@ tabs.forEach(function(tab) {
 
         showSection(sectionName);
         activateTab(sectionName);
+        localStorage.setItem("vozachatActiveTab", sectionName);
 
         if (
             sectionName === "chats" &&
@@ -4046,7 +4047,9 @@ if (!isLoggedIn()) {
     if (mainTabs) {
         mainTabs.style.display = "flex";
     }
-    showSection("chats");
+    const savedTab = localStorage.getItem("vozachatActiveTab") || "chats";
+    showSection(savedTab);
+    activateTab(savedTab);
     activateTab("chats");
 
 }
