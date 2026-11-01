@@ -3732,6 +3732,63 @@ if (vibeAddButton) {
    LOAD STATUSES
    ========================================================= */
 
+
+function viewMyStatus() {
+    if (!myStatuses || myStatuses.length === 0) return;
+
+    let currentIndex = 0;
+
+    const viewer = document.createElement("div");
+    viewer.id = "statusViewer";
+    viewer.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column;";
+
+    const topBar = document.createElement("div");
+    topBar.style.cssText = "padding:20px; display:flex; justify-content:space-between; color:white;";
+    topBar.innerHTML = `<span style="font-weight:bold;">My Status</span><span id="closeStatusViewer" style="cursor:pointer; font-size:20px;">✕</span>`;
+    viewer.appendChild(topBar);
+
+    const mediaContainer = document.createElement("div");
+    mediaContainer.style.cssText = "flex:1; display:flex; align-items:center; justify-content:center;";
+    viewer.appendChild(mediaContainer);
+
+    document.body.appendChild(viewer);
+
+    document.getElementById("closeStatusViewer").onclick = function() {
+        viewer.remove();
+    };
+
+    function showStatus() {
+        const status = myStatuses[currentIndex];
+        mediaContainer.innerHTML = "";
+        
+        if (status.status_type === "video") {
+            const video = document.createElement("video");
+            video.src = status.media_url;
+            video.style.cssText = "max-width:100%; max-height:100%;";
+            video.autoplay = true;
+            mediaContainer.appendChild(video);
+            video.onended = nextStatus;
+        } else {
+            const img = document.createElement("img");
+            img.src = status.media_url;
+            img.style.cssText = "max-width:100%; max-height:100%;";
+            mediaContainer.appendChild(img);
+            setTimeout(nextStatus, 5000);
+        }
+    }
+
+    function nextStatus() {
+        currentIndex++;
+        if (currentIndex < myStatuses.length) {
+            showStatus();
+        } else {
+            viewer.remove();
+        }
+    }
+
+    showStatus();
+}
+
 async function loadStatuses() {
     try {
         const response = await fetch("/api/status/" + currentUser.id);
@@ -3752,7 +3809,7 @@ async function loadStatuses() {
                 <button class="add-button" id="statusAddButton" style="background: #25d366; border-radius: 50%; width: 40px; height: 40px; font-size: 24px; border: none; color: white;">+</button>
             </div>
 
-            <div class="my-status" style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; cursor: pointer;">
+            <div class="my-status" onclick="viewMyStatus()" style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; cursor: pointer;">
                 <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #25d366; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
                     <span style="font-size: 20px; color: #25d366;">${myStatuses.length > 0 ? myStatuses.length : "+"}</span>
                 </div>
