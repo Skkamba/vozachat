@@ -4050,7 +4050,6 @@ if (!isLoggedIn()) {
     const savedTab = localStorage.getItem("vozachatActiveTab") || "chats";
     showSection(savedTab);
     activateTab(savedTab);
-    activateTab("chats");
 
 }
 
