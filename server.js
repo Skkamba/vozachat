@@ -856,7 +856,7 @@ app.post("/api/status", async (req, res) => {
 
         await pool.query(
             `INSERT INTO statuses (user_id, status_type, media_url, expires_at)
-             VALUES ($1, $2, $3, NOW() + INTERVAL '2 minutes')`,
+             VALUES ($1, $2, $3, NOW() + INTERVAL '24 hours')`,
             [Number(userId), statusType || "image", mediaUrl]
         );
 

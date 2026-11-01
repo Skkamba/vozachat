@@ -274,6 +274,8 @@ if (backButton) {
             showSection("chats");
             activateTab("chats");
 
+    loadStatuses();
+    loadVibes();
             if (isLoggedIn()) {
                 await updateChatList();
             }
@@ -674,6 +676,8 @@ if (chatBackButton) {
             showSection("chats");
             activateTab("chats");
 
+    loadStatuses();
+    loadVibes();
             if (isLoggedIn()) {
                 await updateChatList();
             }
@@ -1488,6 +1492,8 @@ if (meButton) {
             loadSavedUser();
 
 
+    loadStatuses();
+    loadVibes();
             if (isLoggedIn()) {
 
                 showAccountHome();
@@ -4062,6 +4068,8 @@ loadUsers();
    refresh their chat list.
 */
 
+    loadStatuses();
+    loadVibes();
 if (isLoggedIn()) {
 
     updateChatList();
