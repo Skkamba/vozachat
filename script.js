@@ -3781,9 +3781,9 @@ async function loadStatuses() {
             </div>
 
                 <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px dashed #25d366; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-                    ${myStatuses.length > 0 ? `<span style="font-size: 20px; color: #25d366;">${myStatuses.length}</span>` : `<span style="font-size: 24px; color: #25d366;">+</span>`}
+                <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #25d366; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                    <span style="font-size: 20px; color: #25d366;">${myStatuses.length > 0 ? myStatuses.length : "+"}</span>
                 </div>
-                <div>
                     <h3 style="margin: 0; font-size: 16px;">My status</h3>
                     <p style="margin: 0; font-size: 12px; color: #aaa;">${myStatuses.length > 0 ? "Tap to view your status" : "Tap to add status update"}</p>
                 </div>
