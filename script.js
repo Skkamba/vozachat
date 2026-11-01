@@ -1221,26 +1221,19 @@ async function updateChatList() {
             result.chats || [];
 
 
-        if (
-            chats.length === 0
-        ) {
+        if (chats.length === 0) {
 
-            if (emptyChats) {
-                emptyChats.style.display =
-                    "flex";
-            if (chatList) {
-                chatList.style.display = "block";
-            }
             if (emptyChats) {
                 emptyChats.style.display = "flex";
+            }
 
             if (chatList) {
+                chatList.style.display = "block";
                 chatList.innerHTML = "";
             }
 
             return;
         }
-
 
         if (emptyChats) {
             emptyChats.style.display =
