@@ -3992,7 +3992,6 @@ async function loadVibes() {
    ========================================================= */
 
 loadSavedTheme();
-    document.body.innerHTML = "<h1>TEST</h1>";
 
 loadSavedUser();
 
