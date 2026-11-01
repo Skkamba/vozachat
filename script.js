@@ -3733,62 +3733,33 @@ if (vibeAddButton) {
    ========================================================= */
 
 async function loadStatuses() {
-
     try {
+        const response = await fetch("/api/status/" + currentUser.id);
+        const result = await response.json();
 
-        const response =
-        alert("Statuses loaded: " + result.statuses.length);
-            await fetch(
-                "/api/status/" +
-                currentUser.id
-            );
+        if (!response.ok) return;
 
-
-        const result =
-            await response.json();
-
-
-        if (!response.ok) {
-            return;
-        }
-
-
-        const statusSection =
-            document.getElementById(
-                "status"
-            );
-
-
-        if (!statusSection) {
-            return;
-        }
-
+        const statusSection = document.getElementById("status");
+        if (!statusSection) return;
 
         const allStatuses = result.statuses || [];
         const myStatuses = allStatuses.filter(s => String(s.user_id) === String(currentUser.id));
         const friendStatuses = allStatuses.filter(s => String(s.user_id) !== String(currentUser.id));
 
-
-        if (statuses.length === 0) {
-            return;
-        }
-
-
         statusSection.innerHTML = `
-
             <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
                 <h2>Status</h2>
                 <button class="add-button" id="statusAddButton" style="background: #25d366; border-radius: 50%; width: 40px; height: 40px; font-size: 24px; border: none; color: white;">+</button>
             </div>
 
-                <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px dashed #25d366; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+            <div class="my-status" style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; cursor: pointer;">
                 <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #25d366; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
                     <span style="font-size: 20px; color: #25d366;">${myStatuses.length > 0 ? myStatuses.length : "+"}</span>
                 </div>
+                <div>
                     <h3 style="margin: 0; font-size: 16px;">My status</h3>
                     <p style="margin: 0; font-size: 12px; color: #aaa;">${myStatuses.length > 0 ? "Tap to view your status" : "Tap to add status update"}</p>
                 </div>
-            </div>
             </div>
 
             <h3 style="margin-top: 20px; font-size: 14px; color: #aaa;">Recent updates</h3>
@@ -3812,67 +3783,46 @@ async function loadStatuses() {
             </div>
         `;
 
-            document.getElementById(
-                "statusAddButton"
-            );
-
-
+        const newStatusButton = document.getElementById("statusAddButton");
         if (newStatusButton) {
-
-            newStatusButton.addEventListener(
-                "click",
-                async function() {
-                    const fileInput = document.createElement("input");
-                    fileInput.type = "file";
-                    fileInput.accept = "image/*,video/*";
-                    fileInput.onchange = async function(event) {
-                        const file = event.target.files[0];
-                        if (!file) return;
-                        const formData = new FormData();
-                        formData.append("file", file);
-                        formData.append("type", file.type.startsWith("video") ? "video" : "image");
-                        try {
-                            const response = await fetch("/api/upload", { method: "POST", body: formData });
-                            const result = await response.json();
-                            if (!response.ok) { alert(result.message || "Upload failed."); return; }
-                            const statusResponse = await fetch("/api/status", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ userId: currentUser.id, mediaUrl: result.url, statusType: file.type.startsWith("video") ? "video" : "image" })
-                            });
-                            if (statusResponse.ok) {
-                                alert("Status posted successfully!");
-                                await loadStatuses();
-                            } else {
-                                const err = await statusResponse.json();
-                                alert(err.message || "Unable to post status.");
-                            }
-                        } catch (error) {
-                            console.error(error);
-                            alert("Unable to upload status.");
+            newStatusButton.addEventListener("click", async function() {
+                const fileInput = document.createElement("input");
+                fileInput.type = "file";
+                fileInput.accept = "image/*,video/*";
+                fileInput.onchange = async function(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("type", file.type.startsWith("video") ? "video" : "image");
+                    try {
+                        const response = await fetch("/api/upload", { method: "POST", body: formData });
+                        const result = await response.json();
+                        if (!response.ok) { alert(result.message || "Upload failed."); return; }
+                        const statusResponse = await fetch("/api/status", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ userId: currentUser.id, mediaUrl: result.url, statusType: file.type.startsWith("video") ? "video" : "image" })
+                        });
+                        if (statusResponse.ok) {
+                            alert("Status posted successfully!");
+                            await loadStatuses();
+                        } else {
+                            const err = await statusResponse.json();
+                            alert(err.message || "Unable to post status.");
                         }
-                    };
-                    fileInput.click();
-                }
-            );
+                    } catch (error) {
+                        console.error(error);
+                        alert("Unable to upload status.");
+                    }
+                };
+                fileInput.click();
+            });
         }
-
-
     } catch (error) {
-
-        console.error(
-            "Load statuses error:",
-            error
-        );
-
+        console.error("Load statuses error:", error);
     }
-
 }
-
-
-/* =========================================================
-   LOAD VIBES
-   ========================================================= */
 
 async function loadVibes() {
 
