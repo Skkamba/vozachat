@@ -1228,7 +1228,11 @@ async function updateChatList() {
             if (emptyChats) {
                 emptyChats.style.display =
                     "flex";
+            if (chatList) {
+                chatList.style.display = "block";
             }
+            if (emptyChats) {
+                emptyChats.style.display = "flex";
 
             if (chatList) {
                 chatList.innerHTML = "";
