@@ -3734,7 +3734,7 @@ if (vibeAddButton) {
 
 
 function viewMyStatus() {
-    if (!myStatuses || myStatuses.length === 0) return;
+    if (!window.window.myStatuses || window.window.myStatuses.length === 0) return;
 
     let currentIndex = 0;
 
@@ -3758,7 +3758,7 @@ function viewMyStatus() {
     };
 
     function showStatus() {
-        const status = myStatuses[currentIndex];
+        const status = window.myStatuses[currentIndex];
         mediaContainer.innerHTML = "";
         
         if (status.status_type === "video") {
@@ -3779,7 +3779,7 @@ function viewMyStatus() {
 
     function nextStatus() {
         currentIndex++;
-        if (currentIndex < myStatuses.length) {
+        if (currentIndex < window.myStatuses.length) {
             showStatus();
         } else {
             viewer.remove();
@@ -3800,7 +3800,7 @@ async function loadStatuses() {
         if (!statusSection) return;
 
         const allStatuses = result.statuses || [];
-        const myStatuses = allStatuses.filter(s => String(s.user_id) === String(currentUser.id));
+        myStatuses = allStatuses.filter(s => String(s.user_id) === String(currentUser.id));
         const friendStatuses = allStatuses.filter(s => String(s.user_id) !== String(currentUser.id));
 
         statusSection.innerHTML = `
