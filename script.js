@@ -3844,13 +3844,40 @@ async function loadStatuses() {
 
             newStatusButton.addEventListener(
                 "click",
-                function() {
-                    alert(
-                        "Status upload coming soon!"
-                    );
+                async function() {
+                    const fileInput = document.createElement("input");
+                    fileInput.type = "file";
+                    fileInput.accept = "image/*,video/*";
+                    fileInput.onchange = async function(event) {
+                        const file = event.target.files[0];
+                        if (!file) return;
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        formData.append("type", file.type.startsWith("video") ? "video" : "image");
+                        try {
+                            const response = await fetch("/api/upload", { method: "POST", body: formData });
+                            const result = await response.json();
+                            if (!response.ok) { alert(result.message || "Upload failed."); return; }
+                            const statusResponse = await fetch("/api/status", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ userId: currentUser.id, mediaUrl: result.url, statusType: file.type.startsWith("video") ? "video" : "image" })
+                            });
+                            if (statusResponse.ok) {
+                                alert("Status posted successfully!");
+                                await loadStatuses();
+                            } else {
+                                const err = await statusResponse.json();
+                                alert(err.message || "Unable to post status.");
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            alert("Unable to upload status.");
+                        }
+                    };
+                    fileInput.click();
                 }
             );
-
         }
 
 
