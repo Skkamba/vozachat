@@ -3737,6 +3737,7 @@ async function loadStatuses() {
     try {
 
         const response =
+        alert("Statuses loaded: " + result.statuses.length);
             await fetch(
                 "/api/status/" +
                 currentUser.id
