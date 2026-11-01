@@ -3774,67 +3774,42 @@ async function loadStatuses() {
 
         statusSection.innerHTML = `
 
-            <div class="section-header">
-
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
                 <h2>Status</h2>
-
-                <button class="add-button" id="statusAddButton">
-                    +
-                </button>
-
+                <button class="add-button" id="statusAddButton" style="background: #25d366; border-radius: 50%; width: 40px; height: 40px; font-size: 24px; border: none; color: white;">+</button>
             </div>
+
+            <div class="my-status" id="myStatusButton" style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; cursor: pointer;">
+                <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px dashed #25d366; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                    <span style="font-size: 24px; color: #25d366;">+</span>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 16px;">My status</h3>
+                    <p style="margin: 0; font-size: 12px; color: #aaa;">Tap to add status update</p>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px; font-size: 14px; color: #aaa;">Recent updates</h3>
 
             <div class="status-list">
-
                 ${statuses.map(function(status) {
-
                     return `
-                        <div class="status-item">
-
-                            <div class="status-avatar">
-                                ${escapeHTML(
-                                    (status.full_name || status.username || "U")
-                                        .charAt(0)
-                                        .toUpperCase()
-                                )}
+                        <div class="status-item" style="display: flex; align-items: center; padding: 10px 0; cursor: pointer;" onclick="alert('Viewing status from: ${escapeHTML(status.username)}')">
+                            <div style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #25d366; padding: 2px; margin-right: 15px;">
+                                <div style="width: 100%; height: 100%; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                    ${escapeHTML((status.full_name || status.username || "U").charAt(0).toUpperCase())}
+                                </div>
                             </div>
-
-                            <div class="status-info">
-
-                                <strong>
-                                    ${escapeHTML(status.username)}
-                                </strong>
-
-                                <p>
-                                    ${escapeHTML(status.status_type)}
-                                </p>
-
+                            <div>
+                                <h3 style="margin: 0; font-size: 16px;">${escapeHTML(status.full_name || status.username)}</h3>
+                                <p style="margin: 0; font-size: 12px; color: #aaa;">Just now</p>
                             </div>
-
-                            ${status.media_url ? `
-                                <img
-                                    src="${status.media_url}"
-                                    alt="Status"
-                                    style="
-                                        width: 50px;
-                                        height: 50px;
-                                        border-radius: 8px;
-                                        object-fit: cover;
-                                    "
-                                >
-                            ` : ""}
-
                         </div>
                     `;
-
                 }).join("")}
-
             </div>
-
         `;
 
-
-        const newStatusButton =
             document.getElementById(
                 "statusAddButton"
             );
